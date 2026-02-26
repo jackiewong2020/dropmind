@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DropMind念投 — 扔进去，搞定了</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 左侧待办事项面板 -->
+    <aside class="todo-sidebar" id="todo-sidebar">
+      <div class="todo-header">
+        <h3>📋 待办事项</h3>
+        <span class="todo-count" id="todo-count">0</span>
+      </div>
+      <div class="todo-input-wrap">
+        <input type="text" id="todo-input" placeholder="添加新待办..." />
+        <button id="btn-add-todo" class="todo-add-btn">+</button>
+      </div>
+      <div class="todo-filters">
+        <button class="todo-filter active" data-filter="all">全部</button>
+        <button class="todo-filter" data-filter="active">未完成</button>
+        <button class="todo-filter" data-filter="done">已完成</button>
+      </div>
+      <div class="todo-list" id="todo-list"></div>
+      <div class="todo-footer" id="todo-footer" style="display:none">
+        <button id="btn-clear-done" class="todo-clear-btn">清除已完成</button>
+      </div>
+    </aside>
+
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+      <div class="nav-left">
+        <span class="logo">✦ DropMind念投</span>
+      </div>
+      <div class="nav-right">
+        <button class="theme-toggle" id="btn-theme" title="切换主题">
+          <span class="icon-sun">☀️</span>
+          <span class="icon-moon">🌙</span>
+        </button>
+        <button class="nav-btn" id="btn-library" title="知识库">📚</button>
+        <button class="nav-btn" id="btn-search" title="搜索">🔍</button>
+        <button class="nav-btn" id="btn-settings" title="设置">⚙️</button>
+      </div>
+    </nav>
+
+    <!-- 主界面：输入区 -->
+    <main class="main-view" id="main-view">
+      <div class="hero">
+        <h1 class="hero-title">扔进去，搞定了。</h1>
+        <p class="hero-sub">文字、链接、视频、语音、图片 — 什么都能扔</p>
+      </div>
+
+      <div class="input-area">
+        <div class="input-box" id="input-box">
+          <textarea id="user-input" placeholder="复制粘贴任何东西到这里..." rows="3"></textarea>
+          <div class="input-actions">
+            <button class="action-btn" id="btn-voice" title="语音输入">🎤</button>
+            <button class="action-btn" id="btn-camera" title="拍照/截图">📷</button>
+            <button class="action-btn" id="btn-file" title="上传文件">📎</button>
+            <button class="send-btn" id="btn-send" title="发送">
+              <span class="send-icon">⏎</span>
+            </button>
+          </div>
+        </div>
+        <input type="file" id="file-input" hidden accept=".txt,.md,.doc,.docx,.pdf,.html,.htm,.csv,.json,.png,.jpg,.jpeg,.gif,.mp3,.mp4">
+      </div>
+
+      <!-- 快捷示例 -->
+      <div class="quick-examples">
+        <span class="example-label">试试看：</span>
+        <button class="example-chip" data-example="https://github.com/anthropics/claude-code">📌 收藏书签</button>
+        <button class="example-chip" data-example="https://www.youtube.com/watch?v=dQw4w9WgXcQ">🎬 YouTube 视频</button>
+        <button class="example-chip" data-example="人工智能正在重塑教育行业。从个性化学习路径到自动评估系统，AI 技术让每个学生都能获得量身定制的学习体验。">💡 一段灵感</button>
+        <button class="example-chip" data-example="https://paulgraham.com/greatwork.html">📖 一篇文章</button>
+      </div>
+
+      <!-- 最近处理 -->
+      <div class="recent-section" id="recent-section">
+        <h3 class="section-title">最近处理</h3>
+        <div class="cards-grid" id="recent-cards"></div>
+      </div>
+    </main>
+
+    <!-- 处理中状态 -->
+    <div class="processing-overlay" id="processing-overlay" style="display:none">
+      <div class="processing-card">
+        <div class="processing-title">处理中...</div>
+        <div class="processing-steps" id="processing-steps"></div>
+      </div>
+    </div>
+
+    <!-- 结果展示 -->
+    <div class="result-view" id="result-view" style="display:none">
+      <button class="back-btn" id="btn-back">← 返回</button>
+      <div class="result-content" id="result-content"></div>
+    </div>
+
+    <!-- 知识库面板 -->
+    <div class="library-panel" id="library-panel" style="display:none">
+      <div class="panel-header">
+        <h2>📚 知识库</h2>
+        <button class="close-btn" id="btn-close-library">✕</button>
+      </div>
+      <div class="library-tabs">
+        <button class="tab active" data-tab="all">全部</button>
+        <button class="tab" data-tab="bookmark">📌 书签</button>
+        <button class="tab" data-tab="note">📝 笔记</button>
+        <button class="tab" data-tab="inspiration">💡 灵感</button>
+        <button class="tab" data-tab="article">✍️ 文章</button>
+        <button class="tab" data-tab="study">🎓 学习包</button>
+      </div>
+      <div class="library-search">
+        <input type="text" id="library-search-input" placeholder="搜索知识库...">
+      </div>
+      <div class="library-items" id="library-items"></div>
+    </div>
+
+    <!-- 搜索面板 -->
+    <div class="search-panel" id="search-panel" style="display:none">
+      <div class="panel-header">
+        <h2>🔍 智能搜索</h2>
+        <button class="close-btn" id="btn-close-search">✕</button>
+      </div>
+      <div class="search-box">
+        <input type="text" id="global-search-input" placeholder="找到我之前保存的关于..." autofocus>
+      </div>
+      <div class="search-results" id="search-results"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="intent-engine.js"></script>
+  <script src="pipelines.js"></script>
+  <script src="knowledge-base.js"></script>
+  <script src="todo.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
