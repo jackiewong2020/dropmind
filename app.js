@@ -8,56 +8,178 @@
 
   // DOM 元素
   const $ = id => document.getElementById(id);
-  const userInput = $('user-input');
-  const btnSend = $('btn-send');
-  const mainView = $('main-view');
-  const processingOverlay = $('processing-overlay');
-  const resultView = $('result-view');
-  const resultContent = $('result-content');
-  const recentCards = $('recent-cards');
-  const recentSection = $('recent-section');
-  const libraryPanel = $('library-panel');
-  const searchPanel = $('search-panel');
-  const libraryItems = $('library-items');
-  const searchResults = $('search-results');
-  const fileInput = $('file-input');
+  let userInput, btnSend, mainView, processingOverlay, resultView, resultContent;
+  let recentCards, recentSection, libraryPanel, searchPanel, libraryItems, searchResults, fileInput;
+
+  // ============================================
+  // 用户认证系统
+  // ============================================
+  const Auth = {
+    USERS_KEY: 'dropmind_users',
+    SESSION_KEY: 'dropmind_session',
+    currentUser: null,
+
+    getUsers() {
+      try { return JSON.parse(localStorage.getItem(this.USERS_KEY)) || {}; }
+      catch { return {}; }
+    },
+    saveUsers(users) { localStorage.setItem(this.USERS_KEY, JSON.stringify(users)); },
+
+    hashPassword(pw) {
+      let h = 0;
+      for (let i = 0; i < pw.length; i++) { h = ((h << 5) - h) + pw.charCodeAt(i); h |= 0; }
+      return 'h_' + Math.abs(h).toString(36);
+    },
+
+    register(username, password) {
+      if (!username || !password) return { ok: false, msg: '请填写用户名和密码' };
+      if (username.length < 2) return { ok: false, msg: '用户名至少2个字符' };
+      if (password.length < 4) return { ok: false, msg: '密码至少4个字符' };
+      const users = this.getUsers();
+      if (users[username]) return { ok: false, msg: '用户名已存在' };
+      users[username] = { hash: this.hashPassword(password), createdAt: new Date().toISOString() };
+      this.saveUsers(users);
+      return this.login(username, password);
+    },
+
+    login(username, password) {
+      const users = this.getUsers();
+      const user = users[username];
+      if (!user) return { ok: false, msg: '用户不存在' };
+      if (user.hash !== this.hashPassword(password)) return { ok: false, msg: '密码错误' };
+      this.currentUser = username;
+      localStorage.setItem(this.SESSION_KEY, username);
+      return { ok: true };
+    },
+
+    logout() {
+      this.currentUser = null;
+      localStorage.removeItem(this.SESSION_KEY);
+    },
+
+    restore() {
+      const saved = localStorage.getItem(this.SESSION_KEY);
+      if (saved && this.getUsers()[saved]) { this.currentUser = saved; return true; }
+      return false;
+    },
+
+    // 返回当前用户的存储前缀
+    prefix() { return 'dm_' + (this.currentUser || 'guest') + '_'; }
+  };
 
   // ============================================
   // 主题切换
   // ============================================
   function initTheme() {
-    const saved = localStorage.getItem('dropmind_theme');
+    const saved = localStorage.getItem(Auth.prefix() + 'theme');
     if (saved === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
     }
-    // 默认浅色，不需要设置 attribute
+    updateThemeBtn();
   }
 
   function toggleTheme() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     if (isDark) {
       document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('dropmind_theme', 'light');
+      localStorage.setItem(Auth.prefix() + 'theme', 'light');
       showToast('已切换到浅色模式');
     } else {
       document.documentElement.setAttribute('data-theme', 'dark');
-      localStorage.setItem('dropmind_theme', 'dark');
+      localStorage.setItem(Auth.prefix() + 'theme', 'dark');
       showToast('已切换到深色模式');
     }
+    updateThemeBtn();
+  }
+
+  function updateThemeBtn() {
+    const btn = $('settings-theme-toggle');
+    if (!btn) return;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    btn.textContent = isDark ? '🌙 深色' : '☀️ 浅色';
   }
 
   // ============================================
   // 初始化
   // ============================================
   function init() {
+    initAuthScreen();
+    if (Auth.restore()) {
+      enterApp();
+    }
+    // else: show auth screen (default visible)
+  }
+
+  function initAuthScreen() {
+    const form = $('auth-form');
+    const tabs = document.querySelectorAll('.auth-tab');
+    let mode = 'login';
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        mode = tab.dataset.tab;
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        $('auth-submit').textContent = mode === 'login' ? '登录' : '注册';
+        $('auth-error').textContent = '';
+      });
+    });
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const username = $('auth-username').value.trim();
+      const password = $('auth-password').value;
+      const result = mode === 'login' ? Auth.login(username, password) : Auth.register(username, password);
+      if (result.ok) {
+        $('auth-error').textContent = '';
+        enterApp();
+      } else {
+        $('auth-error').textContent = result.msg;
+      }
+    });
+  }
+
+  function enterApp() {
+    $('auth-screen').style.display = 'none';
+    $('app').style.display = 'flex';
+
+    // 初始化 DOM 引用
+    userInput = $('user-input');
+    btnSend = $('btn-send');
+    mainView = $('main-view');
+    processingOverlay = $('processing-overlay');
+    resultView = $('result-view');
+    resultContent = $('result-content');
+    recentCards = $('recent-cards');
+    recentSection = $('recent-section');
+    libraryPanel = $('library-panel');
+    searchPanel = $('search-panel');
+    libraryItems = $('library-items');
+    searchResults = $('search-results');
+    fileInput = $('file-input');
+
+    // 设置用户命名空间
+    KnowledgeBase.setPrefix(Auth.prefix());
+    TodoManager.setPrefix(Auth.prefix());
+
     initTheme();
     bindEvents();
     renderRecentCards();
     autoResizeTextarea();
-    // 入场动画
-    requestAnimationFrame(() => {
-      document.body.classList.add('loaded');
-    });
+    TodoUI.init();
+    requestAnimationFrame(() => { document.body.classList.add('loaded'); });
+  }
+
+  function logout() {
+    Auth.logout();
+    $('app').style.display = 'none';
+    $('auth-screen').style.display = 'flex';
+    $('auth-username').value = '';
+    $('auth-password').value = '';
+    $('auth-error').textContent = '';
+    document.documentElement.removeAttribute('data-theme');
   }
 
   function bindEvents() {
@@ -78,9 +200,13 @@
     $('btn-theme').addEventListener('click', toggleTheme);
     $('btn-library').addEventListener('click', toggleLibrary);
     $('btn-search').addEventListener('click', toggleSearch);
+    $('btn-settings').addEventListener('click', toggleSettings);
     $('btn-close-library').addEventListener('click', () => animateHidePanel(libraryPanel));
     $('btn-close-search').addEventListener('click', () => animateHidePanel(searchPanel));
+    $('btn-close-settings').addEventListener('click', () => animateHidePanel($('settings-panel')));
     $('btn-back').addEventListener('click', showMainView);
+    $('btn-logout').addEventListener('click', logout);
+    $('settings-theme-toggle').addEventListener('click', toggleTheme);
 
     // 知识库标签切换
     document.querySelectorAll('.library-tabs .tab').forEach(tab => {
@@ -124,10 +250,29 @@
     // ESC 关闭面板
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
+        const sp = $('settings-panel');
         if (libraryPanel.style.display !== 'none') animateHidePanel(libraryPanel);
         else if (searchPanel.style.display !== 'none') animateHidePanel(searchPanel);
+        else if (sp && sp.style.display !== 'none') animateHidePanel(sp);
       }
     });
+  }
+
+  // 设置面板
+  function toggleSettings() {
+    const sp = $('settings-panel');
+    if (sp.style.display === 'none') {
+      animateHidePanel(libraryPanel);
+      animateHidePanel(searchPanel);
+      // 更新设置面板数据
+      $('settings-user').textContent = '👤 ' + (Auth.currentUser || '未登录');
+      $('settings-kb-count').textContent = KnowledgeBase.getAll().length + ' 条';
+      $('settings-todo-count').textContent = TodoManager.getAll().length + ' 条';
+      updateThemeBtn();
+      animateShowPanel(sp);
+    } else {
+      animateHidePanel(sp);
+    }
   }
 
   // 全局快捷键
@@ -586,19 +731,39 @@
     };
     recentCards.innerHTML = recent.map(item => {
       const c = tc[item.type]||{icon:'📄',badge:'',label:item.type};
+      const isBookmark = item.type === 'bookmark' && item.data && item.data.url;
       return `<div class="result-card${item.pinned?' pinned':''}" data-id="${item.id}">
         ${item.pinned?'<span class="card-pin-badge">📍 置顶</span>':''}
         <span class="card-type-badge ${c.badge}">${c.icon} ${c.label}</span>
         <div class="card-title">${truncate(item.title,50)}</div>
         <div class="card-preview">${truncate(item.data.summary||item.data.description||item.data.originalText||item.data.coreSentence||'',60)}</div>
-        <div class="card-time">${fmtDate(item.createdAt)}</div>
+        <div class="card-bottom">
+          <div class="card-time">${fmtDate(item.createdAt)}</div>
+          ${isBookmark ? '<button class="card-edit-btn" title="编辑">✏️</button>' : ''}
+        </div>
       </div>`;
     }).join('');
     recentCards.querySelectorAll('.result-card').forEach(card => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.card-edit-btn')) return;
         const it = KnowledgeBase.getById(card.dataset.id);
-        if(it) showResult(it);
+        if (!it) return;
+        // 书签类型直接打开网址
+        if (it.type === 'bookmark' && it.data && it.data.url) {
+          window.open(it.data.url, '_blank');
+        } else {
+          showResult(it);
+        }
       });
+      // 编辑按钮
+      const editBtn = card.querySelector('.card-edit-btn');
+      if (editBtn) {
+        editBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const it = KnowledgeBase.getById(card.dataset.id);
+          if (it) showResult(it);
+        });
+      }
     });
   }
 
@@ -666,7 +831,12 @@
       el.addEventListener('click', (e) => {
         if (e.target.closest('.pin-btn')) return;
         const it = KnowledgeBase.getById(el.dataset.id);
-        if (it) { animateHidePanel(libraryPanel); setTimeout(() => showResult(it), 150); }
+        if (!it) return;
+        if (it.type === 'bookmark' && it.data && it.data.url) {
+          window.open(it.data.url, '_blank');
+        } else {
+          animateHidePanel(libraryPanel); setTimeout(() => showResult(it), 150);
+        }
       });
     });
     libraryItems.querySelectorAll('.pin-btn').forEach(btn => {
@@ -814,7 +984,7 @@
           item.data.formattedHtml = preview.innerHTML;
           const all = KnowledgeBase.getAll();
           const idx = all.findIndex(i => i.id === itemId);
-          if (idx !== -1) { all[idx] = item; localStorage.setItem('dropmind_kb', JSON.stringify(all)); }
+          if (idx !== -1) { all[idx] = item; localStorage.setItem(KnowledgeBase.storageKey(), JSON.stringify(all)); }
         }
       }
     }

@@ -9,7 +9,25 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
+  <!-- 登录/注册界面 -->
+  <div class="auth-screen" id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-logo">✦ DropMind念投</div>
+      <p class="auth-sub">扔进去，搞定了。</p>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">登录</button>
+        <button class="auth-tab" data-tab="register">注册</button>
+      </div>
+      <form class="auth-form" id="auth-form">
+        <input type="text" id="auth-username" placeholder="用户名" required autocomplete="username">
+        <input type="password" id="auth-password" placeholder="密码" required autocomplete="current-password">
+        <button type="submit" class="auth-submit" id="auth-submit">登录</button>
+      </form>
+      <div class="auth-error" id="auth-error"></div>
+    </div>
+  </div>
+
+  <div id="app" style="display:none">
     <!-- 左侧待办事项面板 -->
     <aside class="todo-sidebar" id="todo-sidebar">
       <div class="todo-header">
@@ -129,6 +147,40 @@
         <input type="text" id="global-search-input" placeholder="找到我之前保存的关于..." autofocus>
       </div>
       <div class="search-results" id="search-results"></div>
+    </div>
+    <!-- 设置面板 -->
+    <div class="settings-panel" id="settings-panel" style="display:none">
+      <div class="panel-header">
+        <h2>⚙️ 设置</h2>
+        <button class="close-btn" id="btn-close-settings">✕</button>
+      </div>
+      <div class="settings-content">
+        <div class="settings-section">
+          <div class="settings-label">账号</div>
+          <div class="settings-user" id="settings-user"></div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">外观</div>
+          <div class="settings-row">
+            <span>深色模式</span>
+            <button class="settings-theme-btn" id="settings-theme-toggle">☀️ 浅色</button>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">数据</div>
+          <div class="settings-row">
+            <span>知识库条目</span>
+            <span id="settings-kb-count">0</span>
+          </div>
+          <div class="settings-row">
+            <span>待办事项</span>
+            <span id="settings-todo-count">0</span>
+          </div>
+        </div>
+        <div class="settings-section">
+          <button class="settings-logout-btn" id="btn-logout">退出登录</button>
+        </div>
+      </div>
     </div>
   </div>
 

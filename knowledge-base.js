@@ -5,17 +5,20 @@
 
 const KnowledgeBase = (() => {
 
-  const STORAGE_KEY = 'dropmind_kb';
+  let _prefix = 'dropmind_';
+
+  function setPrefix(p) { _prefix = p; }
+  function storageKey() { return _prefix + 'kb'; }
 
   function getAll() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey());
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   }
 
   function save(items) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    localStorage.setItem(storageKey(), JSON.stringify(items));
   }
 
   function add(item) {
@@ -47,7 +50,6 @@ const KnowledgeBase = (() => {
     }
     return item;
   }
-
   function update(id, changes) {
     const items = getAll();
     const idx = items.findIndex(i => i.id === id);
@@ -59,7 +61,6 @@ const KnowledgeBase = (() => {
     return null;
   }
 
-  // 排序：置顶优先，然后按时间倒序
   function sorted(items) {
     return items.slice().sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
@@ -84,30 +85,18 @@ const KnowledgeBase = (() => {
     });
   }
 
-  function getById(id) {
-    return getAll().find(i => i.id === id);
-  }
-
-  function getRecent(limit) {
-    return sorted(getAll()).slice(0, limit || 6);
-  }
+  function getById(id) { return getAll().find(i => i.id === id); }
+  function getRecent(limit) { return sorted(getAll()).slice(0, limit || 6); }
 
   function getStats() {
     const items = getAll();
     const stats = { total: items.length };
-    const types = ['bookmark', 'readlater', 'note', 'inspiration', 'article', 'study'];
-    types.forEach(t => { stats[t] = items.filter(i => i.type === t).length; });
+    ['bookmark','readlater','note','inspiration','article','study'].forEach(t => { stats[t] = items.filter(i => i.type === t).length; });
     return stats;
   }
 
-  function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
-  }
+  function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 6); }
+  function clear() { localStorage.removeItem(storageKey()); }
 
-  function clear() {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-
-  return { add, remove, togglePin, update, getAll, getByType, search, getById, getRecent, getStats, clear };
-
+  return { setPrefix, storageKey, add, remove, togglePin, update, getAll, getByType, search, getById, getRecent, getStats, clear };
 })();

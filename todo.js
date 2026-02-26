@@ -3,17 +3,20 @@
    ============================================ */
 
 const TodoManager = (() => {
-  const STORAGE_KEY = 'dropmind_todos';
+  let _prefix = 'dropmind_';
+
+  function setPrefix(p) { _prefix = p; }
+  function storageKey() { return _prefix + 'todos'; }
 
   function getAll() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey());
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   }
 
   function save(items) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    localStorage.setItem(storageKey(), JSON.stringify(items));
   }
 
   function add(text) {
@@ -36,13 +39,8 @@ const TodoManager = (() => {
     return item;
   }
 
-  function remove(id) {
-    save(getAll().filter(i => i.id !== id));
-  }
-
-  function clearDone() {
-    save(getAll().filter(i => !i.done));
-  }
+  function remove(id) { save(getAll().filter(i => i.id !== id)); }
+  function clearDone() { save(getAll().filter(i => !i.done)); }
 
   function getFiltered(filter) {
     const all = getAll();
@@ -56,32 +54,30 @@ const TodoManager = (() => {
     return { total: all.length, active: all.filter(i => !i.done).length, done: all.filter(i => i.done).length };
   }
 
-  return { getAll, add, toggle, remove, clearDone, getFiltered, getStats };
+  return { setPrefix, getAll, add, toggle, remove, clearDone, getFiltered, getStats };
 })();
-
 // ============================================
 // Todo UI Controller
 // ============================================
-(function() {
+const TodoUI = (() => {
   'use strict';
 
-  const todoInput = document.getElementById('todo-input');
-  const btnAdd = document.getElementById('btn-add-todo');
-  const todoList = document.getElementById('todo-list');
-  const todoCount = document.getElementById('todo-count');
-  const todoFooter = document.getElementById('todo-footer');
-  const btnClearDone = document.getElementById('btn-clear-done');
+  let todoInput, btnAdd, todoList, todoCount, todoFooter, btnClearDone;
   let currentFilter = 'all';
+  let initialized = false;
 
   function init() {
+    if (initialized) { render(); return; }
+    todoInput = document.getElementById('todo-input');
+    btnAdd = document.getElementById('btn-add-todo');
+    todoList = document.getElementById('todo-list');
+    todoCount = document.getElementById('todo-count');
+    todoFooter = document.getElementById('todo-footer');
+    btnClearDone = document.getElementById('btn-clear-done');
+
     btnAdd.addEventListener('click', addTodo);
-    todoInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') addTodo();
-    });
-    btnClearDone.addEventListener('click', () => {
-      TodoManager.clearDone();
-      render();
-    });
+    todoInput.addEventListener('keydown', e => { if (e.key === 'Enter') addTodo(); });
+    btnClearDone.addEventListener('click', () => { TodoManager.clearDone(); render(); });
     document.querySelectorAll('.todo-filter').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.todo-filter').forEach(b => b.classList.remove('active'));
@@ -90,6 +86,7 @@ const TodoManager = (() => {
         render();
       });
     });
+    initialized = true;
     render();
   }
 
@@ -102,6 +99,7 @@ const TodoManager = (() => {
   }
 
   function render() {
+    if (!todoList) return;
     const items = TodoManager.getFiltered(currentFilter);
     const stats = TodoManager.getStats();
     todoCount.textContent = stats.active;
@@ -123,24 +121,12 @@ const TodoManager = (() => {
 
     todoList.querySelectorAll('.todo-item').forEach(el => {
       const id = el.dataset.id;
-      el.querySelector('.todo-checkbox').addEventListener('click', (e) => {
-        e.stopPropagation();
-        TodoManager.toggle(id);
-        render();
-      });
-      el.querySelector('.todo-delete').addEventListener('click', (e) => {
-        e.stopPropagation();
-        TodoManager.remove(id);
-        render();
-      });
+      el.querySelector('.todo-checkbox').addEventListener('click', e => { e.stopPropagation(); TodoManager.toggle(id); render(); });
+      el.querySelector('.todo-delete').addEventListener('click', e => { e.stopPropagation(); TodoManager.remove(id); render(); });
     });
   }
 
-  function escHtml(s) {
-    const d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-  }
+  function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-  init();
+  return { init, render };
 })();
