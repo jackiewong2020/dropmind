@@ -102,6 +102,37 @@
   }
 
   // ============================================
+  // AI 模型配置
+  // ============================================
+  const ModelConfig = {
+    KEY_MODEL: () => Auth.prefix() + 'ai_model',
+    KEY_ANTHROPIC: () => Auth.prefix() + 'api_anthropic',
+    KEY_GOOGLE: () => Auth.prefix() + 'api_google',
+
+    getModel() {
+      return localStorage.getItem(this.KEY_MODEL()) || 'claude-3.5-sonnet';
+    },
+    setModel(model) {
+      localStorage.setItem(this.KEY_MODEL(), model);
+    },
+    getApiKey(provider) {
+      const key = provider === 'google' ? this.KEY_GOOGLE() : this.KEY_ANTHROPIC();
+      return localStorage.getItem(key) || '';
+    },
+    setApiKey(provider, value) {
+      const key = provider === 'google' ? this.KEY_GOOGLE() : this.KEY_ANTHROPIC();
+      if (value) localStorage.setItem(key, value);
+      else localStorage.removeItem(key);
+    },
+    isGemini() {
+      return this.getModel().startsWith('gemini');
+    },
+    getActiveProvider() {
+      return this.isGemini() ? 'google' : 'anthropic';
+    }
+  };
+
+  // ============================================
   // 初始化
   // ============================================
   function init() {
@@ -208,6 +239,22 @@
     $('btn-logout').addEventListener('click', logout);
     $('settings-theme-toggle').addEventListener('click', toggleTheme);
 
+    // AI 模型配置
+    $('settings-model').addEventListener('change', e => {
+      ModelConfig.setModel(e.target.value);
+      showToast('已切换为 ' + e.target.selectedOptions[0].text);
+    });
+    $('btn-api-key').addEventListener('click', () => {
+      const panel = $('api-key-panel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+    $('btn-save-api-keys').addEventListener('click', () => {
+      ModelConfig.setApiKey('anthropic', $('api-key-anthropic').value.trim());
+      ModelConfig.setApiKey('google', $('api-key-google').value.trim());
+      showToast('API 密钥已保存');
+      $('api-key-panel').style.display = 'none';
+    });
+
     // 知识库标签切换
     document.querySelectorAll('.library-tabs .tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -237,7 +284,18 @@
 
     // 文件上传
     $('btn-file').addEventListener('click', () => fileInput.click());
+    $('btn-doc').addEventListener('click', () => $('doc-input').click());
+    $('btn-audio').addEventListener('click', () => $('audio-input').click());
+    $('btn-video').addEventListener('click', () => $('video-input').click());
     fileInput.addEventListener('change', handleFileUpload);
+    $('doc-input').addEventListener('change', handleFileUpload);
+    $('audio-input').addEventListener('change', handleFileUpload);
+    $('video-input').addEventListener('change', handleFileUpload);
+
+    // 语音录制
+    $('btn-voice').addEventListener('click', startVoiceRecording);
+    $('voice-cancel').addEventListener('click', cancelVoiceRecording);
+    $('voice-stop').addEventListener('click', stopVoiceRecording);
 
     // 粘贴处理
     userInput.addEventListener('paste', () => {
@@ -268,6 +326,11 @@
       $('settings-user').textContent = '👤 ' + (Auth.currentUser || '未登录');
       $('settings-kb-count').textContent = KnowledgeBase.getAll().length + ' 条';
       $('settings-todo-count').textContent = TodoManager.getAll().length + ' 条';
+      // AI 模型配置
+      $('settings-model').value = ModelConfig.getModel();
+      $('api-key-anthropic').value = ModelConfig.getApiKey('anthropic');
+      $('api-key-google').value = ModelConfig.getApiKey('google');
+      $('api-key-panel').style.display = 'none';
       updateThemeBtn();
       animateShowPanel(sp);
     } else {
@@ -932,6 +995,61 @@
     if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
     if (diff < 172800000) return '昨天';
     return d.toLocaleDateString('zh-CN');
+  }
+
+  // ============================================
+  // 语音录制 — Typeless 风格
+  // ============================================
+  function startVoiceRecording() {
+    if (!VoiceRecorder.isSupported()) {
+      showToast('当前浏览器不支持语音识别，请使用 Chrome');
+      return;
+    }
+    const overlay = $('voice-overlay');
+    const preview = $('voice-preview');
+    overlay.style.display = 'flex';
+    preview.innerHTML = '';
+
+    VoiceRecorder.start({
+      onUpdate(data) {
+        // 实时显示清洗后的文本 + 临时文本
+        const cleaned = data.cleaned || '';
+        preview.innerHTML = cleaned;
+      },
+      onComplete(result) {
+        overlay.style.display = 'none';
+        if (result.cleaned && result.cleaned.trim()) {
+          userInput.value = result.cleaned;
+          autoResizeTextarea();
+          userInput.focus();
+          showToast('语音已转为文本');
+        }
+      },
+      onError(err) {
+        overlay.style.display = 'none';
+        if (err === 'not-allowed') {
+          showToast('请允许麦克风权限');
+        } else {
+          showToast('语音识别出错: ' + err);
+        }
+      },
+    });
+  }
+
+  function stopVoiceRecording() {
+    const result = VoiceRecorder.stop();
+    $('voice-overlay').style.display = 'none';
+    if (result && result.cleaned && result.cleaned.trim()) {
+      userInput.value = result.cleaned;
+      autoResizeTextarea();
+      userInput.focus();
+      showToast('语音已转为文本');
+    }
+  }
+
+  function cancelVoiceRecording() {
+    VoiceRecorder.cancel();
+    $('voice-overlay').style.display = 'none';
   }
 
   // 升级版 Toast — 带动画

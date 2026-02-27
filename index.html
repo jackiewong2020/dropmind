@@ -31,7 +31,7 @@
     <!-- 左侧待办事项面板 -->
     <aside class="todo-sidebar" id="todo-sidebar">
       <div class="todo-header">
-        <h3>📋 待办事项</h3>
+        <h3>✅ 待办事项</h3>
         <span class="todo-count" id="todo-count">0</span>
       </div>
       <div class="todo-input-wrap">
@@ -39,13 +39,13 @@
         <button id="btn-add-todo" class="todo-add-btn">+</button>
       </div>
       <div class="todo-filters">
-        <button class="todo-filter active" data-filter="all">全部</button>
-        <button class="todo-filter" data-filter="active">未完成</button>
-        <button class="todo-filter" data-filter="done">已完成</button>
+        <button class="todo-filter active" data-filter="todo">📝 待办</button>
+        <button class="todo-filter" data-filter="doing">🔄 进行中</button>
+        <button class="todo-filter" data-filter="done">✅ 已完成</button>
       </div>
       <div class="todo-list" id="todo-list"></div>
       <div class="todo-footer" id="todo-footer" style="display:none">
-        <button id="btn-clear-done" class="todo-clear-btn">清除已完成</button>
+        <button id="btn-clear-done" class="todo-clear-btn">🧹 清除已完成</button>
       </div>
     </aside>
 
@@ -78,13 +78,19 @@
           <div class="input-actions">
             <button class="action-btn" id="btn-voice" title="语音输入">🎤</button>
             <button class="action-btn" id="btn-camera" title="拍照/截图">📷</button>
-            <button class="action-btn" id="btn-file" title="上传文件">📎</button>
+            <button class="action-btn" id="btn-doc" title="文档">📄</button>
+            <button class="action-btn" id="btn-audio" title="音频">🎵</button>
+            <button class="action-btn" id="btn-video" title="视频">🎬</button>
+            <button class="action-btn" id="btn-file" title="附件">📎</button>
             <button class="send-btn" id="btn-send" title="发送">
               <span class="send-icon">⏎</span>
             </button>
           </div>
         </div>
-        <input type="file" id="file-input" hidden accept=".txt,.md,.doc,.docx,.pdf,.html,.htm,.csv,.json,.png,.jpg,.jpeg,.gif,.mp3,.mp4">
+        <input type="file" id="file-input" hidden accept="*/*">
+        <input type="file" id="doc-input" hidden accept=".txt,.md,.doc,.docx,.pdf,.html,.htm,.csv,.json,.xls,.xlsx,.ppt,.pptx">
+        <input type="file" id="audio-input" hidden accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.wma">
+        <input type="file" id="video-input" hidden accept=".mp4,.mov,.avi,.mkv,.webm,.flv,.wmv">
       </div>
 
       <!-- 快捷示例 -->
@@ -167,6 +173,33 @@
           </div>
         </div>
         <div class="settings-section">
+          <div class="settings-label">AI 模型</div>
+          <div class="settings-row">
+            <span>默认模型</span>
+            <select class="settings-select" id="settings-model">
+              <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+              <option value="claude-3-opus">Claude 3 Opus</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <span>API Key</span>
+            <button class="settings-api-btn" id="btn-api-key">配置 →</button>
+          </div>
+          <div class="api-key-panel" id="api-key-panel" style="display:none">
+            <div class="api-key-group">
+              <label>Anthropic API Key</label>
+              <input type="password" class="api-key-input" id="api-key-anthropic" placeholder="sk-ant-...">
+            </div>
+            <div class="api-key-group">
+              <label>Google AI API Key</label>
+              <input type="password" class="api-key-input" id="api-key-google" placeholder="AIza...">
+            </div>
+            <button class="api-key-save-btn" id="btn-save-api-keys">保存密钥</button>
+          </div>
+        </div>
+        <div class="settings-section">
           <div class="settings-label">数据</div>
           <div class="settings-row">
             <span>知识库条目</span>
@@ -184,10 +217,28 @@
     </div>
   </div>
 
+  <!-- 语音录制浮层 -->
+  <div class="voice-overlay" id="voice-overlay" style="display:none">
+    <div class="voice-card">
+      <div class="voice-status" id="voice-status">
+        <div class="voice-wave">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="voice-label">正在聆听...</div>
+      </div>
+      <div class="voice-preview" id="voice-preview"></div>
+      <div class="voice-actions">
+        <button class="voice-cancel-btn" id="voice-cancel">取消</button>
+        <button class="voice-stop-btn" id="voice-stop">完成</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="intent-engine.js"></script>
   <script src="pipelines.js"></script>
   <script src="knowledge-base.js"></script>
+  <script src="voice-recorder.js"></script>
   <script src="todo.js"></script>
   <script src="app.js"></script>
 </body>
