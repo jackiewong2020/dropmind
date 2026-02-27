@@ -110,7 +110,7 @@
     KEY_GOOGLE: () => Auth.prefix() + 'api_google',
 
     getModel() {
-      return localStorage.getItem(this.KEY_MODEL()) || 'claude-3.5-sonnet';
+      return localStorage.getItem(this.KEY_MODEL()) || 'claude-4-opus';
     },
     setModel(model) {
       localStorage.setItem(this.KEY_MODEL(), model);
@@ -129,6 +129,177 @@
     },
     getActiveProvider() {
       return this.isGemini() ? 'google' : 'anthropic';
+    }
+  };
+
+  // ============================================
+  // 坚果云 WebDAV 同步
+  // ============================================
+  const NutstoreSync = {
+    KEY_ACCOUNT: () => Auth.prefix() + 'nutstore_account',
+    KEY_PASSWORD: () => Auth.prefix() + 'nutstore_password',
+    KEY_LAST_SYNC: () => Auth.prefix() + 'nutstore_last_sync',
+    WEBDAV_BASE: 'https://dav.jianguoyun.com/dav/DropMind/',
+
+    getAccount() { return localStorage.getItem(this.KEY_ACCOUNT()) || ''; },
+    getPassword() { return localStorage.getItem(this.KEY_PASSWORD()) || ''; },
+    getLastSync() { return localStorage.getItem(this.KEY_LAST_SYNC()) || ''; },
+
+    save(account, password) {
+      if (account) localStorage.setItem(this.KEY_ACCOUNT(), account);
+      else localStorage.removeItem(this.KEY_ACCOUNT());
+      if (password) localStorage.setItem(this.KEY_PASSWORD(), password);
+      else localStorage.removeItem(this.KEY_PASSWORD());
+    },
+
+    isConfigured() {
+      return !!(this.getAccount() && this.getPassword());
+    },
+
+    _headers() {
+      return {
+        'Authorization': 'Basic ' + btoa(this.getAccount() + ':' + this.getPassword()),
+        'Content-Type': 'application/json',
+      };
+    },
+
+    async ensureFolder() {
+      try {
+        await fetch(this.WEBDAV_BASE, { method: 'MKCOL', headers: this._headers() });
+      } catch(e) { /* folder may already exist */ }
+    },
+
+    async sync() {
+      if (!this.isConfigured()) return { ok: false, msg: '未配置坚果云账号' };
+      const statusEl = $('sync-status');
+      if (statusEl) { statusEl.textContent = '同步中...'; statusEl.className = 'sync-status syncing'; }
+
+      try {
+        await this.ensureFolder();
+        // Upload local data
+        const data = {
+          knowledgeBase: KnowledgeBase.getAll(),
+          todos: TodoManager.getAll(),
+          model: ModelConfig.getModel(),
+          syncedAt: new Date().toISOString(),
+        };
+        const uploadUrl = this.WEBDAV_BASE + Auth.currentUser + '.json';
+        const res = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: this._headers(),
+          body: JSON.stringify(data, null, 2),
+        });
+
+        if (res.ok || res.status === 201 || res.status === 204) {
+          localStorage.setItem(this.KEY_LAST_SYNC(), new Date().toISOString());
+          if (statusEl) { statusEl.textContent = '已连接'; statusEl.className = 'sync-status connected'; }
+          return { ok: true, msg: '同步成功' };
+        } else {
+          if (statusEl) { statusEl.textContent = '同步失败'; statusEl.className = 'sync-status'; }
+          return { ok: false, msg: '同步失败: ' + res.status };
+        }
+      } catch(e) {
+        if (statusEl) { statusEl.textContent = '连接失败'; statusEl.className = 'sync-status'; }
+        return { ok: false, msg: '网络错误: ' + e.message };
+      }
+    },
+
+    async pull() {
+      if (!this.isConfigured()) return { ok: false, msg: '未配置' };
+      try {
+        const url = this.WEBDAV_BASE + Auth.currentUser + '.json';
+        const res = await fetch(url, { method: 'GET', headers: this._headers() });
+        if (res.ok) {
+          const data = await res.json();
+          return { ok: true, data };
+        }
+        return { ok: false, msg: '无云端数据' };
+      } catch(e) {
+        return { ok: false, msg: e.message };
+      }
+    },
+
+    updateStatusUI() {
+      const statusEl = $('sync-status');
+      const syncBtn = $('btn-sync-now');
+      if (!statusEl) return;
+      if (this.isConfigured()) {
+        statusEl.textContent = '已连接';
+        statusEl.className = 'sync-status connected';
+        if (syncBtn) syncBtn.style.display = 'block';
+      } else {
+        statusEl.textContent = '未连接';
+        statusEl.className = 'sync-status';
+        if (syncBtn) syncBtn.style.display = 'none';
+      }
+    }
+  };
+
+  // ============================================
+  // 快捷键配置
+  // ============================================
+  const HotkeyConfig = {
+    KEY: () => Auth.prefix() + 'voice_hotkey',
+    _listening: false,
+    _handler: null,
+
+    get() {
+      try { return JSON.parse(localStorage.getItem(this.KEY())); }
+      catch { return null; }
+    },
+    set(combo) {
+      localStorage.setItem(this.KEY(), JSON.stringify(combo));
+      this.bind();
+    },
+    formatCombo(combo) {
+      if (!combo) return '未设置';
+      const parts = [];
+      if (combo.ctrl) parts.push('Ctrl');
+      if (combo.alt) parts.push('Alt');
+      if (combo.shift) parts.push('Shift');
+      if (combo.meta) parts.push('⌘');
+      if (combo.key) parts.push(combo.key.toUpperCase());
+      return parts.join(' + ') || '未设置';
+    },
+    startListening() {
+      this._listening = true;
+      const btn = $('btn-voice-hotkey');
+      const hint = $('hotkey-hint');
+      if (btn) btn.classList.add('recording');
+      if (hint) hint.style.display = 'block';
+
+      const onKey = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (['Control','Alt','Shift','Meta'].includes(e.key)) return;
+        const combo = {
+          ctrl: e.ctrlKey, alt: e.altKey,
+          shift: e.shiftKey, meta: e.metaKey,
+          key: e.key,
+        };
+        this.set(combo);
+        if (btn) { btn.textContent = this.formatCombo(combo); btn.classList.remove('recording'); }
+        if (hint) hint.style.display = 'none';
+        this._listening = false;
+        document.removeEventListener('keydown', onKey, true);
+        showToast('快捷键已设置: ' + this.formatCombo(combo));
+      };
+      document.addEventListener('keydown', onKey, true);
+    },
+    bind() {
+      if (this._handler) document.removeEventListener('keydown', this._handler);
+      const combo = this.get();
+      if (!combo) return;
+      this._handler = (e) => {
+        if (this._listening) return;
+        if (e.ctrlKey === combo.ctrl && e.altKey === combo.alt &&
+            e.shiftKey === combo.shift && e.metaKey === combo.meta &&
+            e.key.toLowerCase() === combo.key.toLowerCase()) {
+          e.preventDefault();
+          startVoiceRecording();
+        }
+      };
+      document.addEventListener('keydown', this._handler);
     }
   };
 
@@ -200,6 +371,7 @@
     renderRecentCards();
     autoResizeTextarea();
     TodoUI.init();
+    HotkeyConfig.bind();
     requestAnimationFrame(() => { document.body.classList.add('loaded'); });
   }
 
@@ -253,6 +425,31 @@
       ModelConfig.setApiKey('google', $('api-key-google').value.trim());
       showToast('API 密钥已保存');
       $('api-key-panel').style.display = 'none';
+    });
+
+    // 侧栏切换（移动端）
+    $('btn-sidebar-toggle').addEventListener('click', toggleSidebar);
+
+    // 坚果云同步
+    $('btn-save-nutstore').addEventListener('click', async () => {
+      const account = $('nutstore-account').value.trim();
+      const password = $('nutstore-password').value.trim();
+      if (!account || !password) { showToast('请填写账号和密码'); return; }
+      NutstoreSync.save(account, password);
+      NutstoreSync.updateStatusUI();
+      showToast('坚果云配置已保存，正在同步...');
+      const result = await NutstoreSync.sync();
+      showToast(result.msg);
+    });
+    $('btn-sync-now').addEventListener('click', async () => {
+      showToast('正在同步...');
+      const result = await NutstoreSync.sync();
+      showToast(result.msg);
+    });
+
+    // 快捷键配置
+    $('btn-voice-hotkey').addEventListener('click', () => {
+      HotkeyConfig.startListening();
     });
 
     // 知识库标签切换
@@ -331,10 +528,45 @@
       $('api-key-anthropic').value = ModelConfig.getApiKey('anthropic');
       $('api-key-google').value = ModelConfig.getApiKey('google');
       $('api-key-panel').style.display = 'none';
+      // 坚果云
+      $('nutstore-account').value = NutstoreSync.getAccount();
+      $('nutstore-password').value = NutstoreSync.getPassword();
+      NutstoreSync.updateStatusUI();
+      // 快捷键
+      $('btn-voice-hotkey').textContent = HotkeyConfig.formatCombo(HotkeyConfig.get());
       updateThemeBtn();
       animateShowPanel(sp);
     } else {
       animateHidePanel(sp);
+    }
+  }
+
+  // 侧栏切换（移动端）
+  function toggleSidebar() {
+    const sidebar = $('todo-sidebar');
+    let overlay = document.querySelector('.sidebar-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', () => closeSidebar());
+    }
+    if (sidebar.classList.contains('open')) {
+      closeSidebar();
+    } else {
+      sidebar.classList.add('open');
+      overlay.style.display = 'block';
+      requestAnimationFrame(() => overlay.classList.add('visible'));
+    }
+  }
+
+  function closeSidebar() {
+    const sidebar = $('todo-sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    sidebar.classList.remove('open');
+    if (overlay) {
+      overlay.classList.remove('visible');
+      setTimeout(() => { overlay.style.display = 'none'; }, 300);
     }
   }
 

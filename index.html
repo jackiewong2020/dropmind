@@ -52,6 +52,7 @@
     <!-- 顶部导航 -->
     <nav class="top-nav">
       <div class="nav-left">
+        <button class="sidebar-toggle" id="btn-sidebar-toggle">☰</button>
         <span class="logo">✦ DropMind念投</span>
       </div>
       <div class="nav-right">
@@ -76,7 +77,6 @@
         <div class="input-box" id="input-box">
           <textarea id="user-input" placeholder="复制粘贴任何东西到这里..." rows="3"></textarea>
           <div class="input-actions">
-            <button class="action-btn" id="btn-voice" title="语音输入">🎤</button>
             <button class="action-btn" id="btn-camera" title="拍照/截图">📷</button>
             <button class="action-btn" id="btn-doc" title="文档">📄</button>
             <button class="action-btn" id="btn-audio" title="音频">🎵</button>
@@ -87,6 +87,7 @@
             </button>
           </div>
         </div>
+        <button class="voice-standalone-btn" id="btn-voice" title="语音输入">🎤 语音输入</button>
         <input type="file" id="file-input" hidden accept="*/*">
         <input type="file" id="doc-input" hidden accept=".txt,.md,.doc,.docx,.pdf,.html,.htm,.csv,.json,.xls,.xlsx,.ppt,.pptx">
         <input type="file" id="audio-input" hidden accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.wma">
@@ -177,10 +178,12 @@
           <div class="settings-row">
             <span>默认模型</span>
             <select class="settings-select" id="settings-model">
+              <option value="claude-4-opus">Claude 4 Opus</option>
+              <option value="claude-4-sonnet">Claude 4 Sonnet</option>
               <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-              <option value="claude-3-opus">Claude 3 Opus</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
               <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
             </select>
           </div>
           <div class="settings-row">
@@ -198,6 +201,35 @@
             </div>
             <button class="api-key-save-btn" id="btn-save-api-keys">保存密钥</button>
           </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">坚果云同步</div>
+          <div class="settings-row">
+            <span>同步状态</span>
+            <span class="sync-status" id="sync-status">未连接</span>
+          </div>
+          <div class="nutstore-config" id="nutstore-config">
+            <div class="api-key-group">
+              <label>坚果云账号（邮箱）</label>
+              <input type="text" class="api-key-input" id="nutstore-account" placeholder="your@email.com">
+            </div>
+            <div class="api-key-group">
+              <label>应用密码（在坚果云安全选项中生成）</label>
+              <input type="password" class="api-key-input" id="nutstore-password" placeholder="应用专用密码">
+            </div>
+            <div class="nutstore-actions">
+              <button class="api-key-save-btn" id="btn-save-nutstore">保存并连接</button>
+              <button class="nutstore-sync-btn" id="btn-sync-now" style="display:none">🔄 立即同步</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label">快捷键</div>
+          <div class="settings-row">
+            <span>语音录制</span>
+            <button class="hotkey-btn" id="btn-voice-hotkey">未设置</button>
+          </div>
+          <div class="hotkey-hint" id="hotkey-hint" style="display:none">按下想要的快捷键组合...</div>
         </div>
         <div class="settings-section">
           <div class="settings-label">数据</div>
